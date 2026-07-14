@@ -1,0 +1,788 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="description" content="Formulário digital de Avaliação Ergonômica do Trabalho (AET) conforme NR-17. Ferramenta profissional para pesquisa de campo.">
+  <meta name="theme-color" content="#6B7F4E">
+  <title>AET — Avaliação Ergonômica do Trabalho</title>
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192x192.png">
+  <link rel="apple-touch-icon" href="icons/icon-192x192.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="AEP IN SOMA">
+  <meta name="mobile-web-app-capable" content="yes">
+  <!-- Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  <!-- Libraries -->
+  <script src="https://unpkg.com/dexie@3.2.4/dist/dexie.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+  <!-- Crypto -->
+  <script src="js/crypto-js.min.js"></script>
+  <script src="js/crypto.js"></script>
+  <!-- Styles -->
+  <link rel="stylesheet" href="css/styles.css?v=5">
+  <style>
+    .section-step {
+      min-width: fit-content;
+      padding: 0 12px;
+      white-space: nowrap;
+    }
+  </style>
+</head>
+<body>
+  <!-- ======== LOCK SCREEN ======== -->
+  <div class="lock-screen-overlay" id="lockScreen">
+    <div class="lock-box">
+      <div class="lock-icon">🔒</div>
+      <h2 id="lockTitle" style="margin-bottom:8px">Acesso Protegido</h2>
+      <p id="lockDesc" style="color:var(--color-text-muted); margin-bottom: 24px; font-size: 0.9em;">
+        Insira seu PIN para acessar os dados criptografados.
+      </p>
+      <input type="password" id="pinInput" class="pin-input" maxlength="6" placeholder="****" inputmode="numeric">
+      <button class="btn btn-primary" id="btnUnlock" style="width:100%; padding: 12px; font-size:1.1em">Desbloquear</button>
+      <div id="lockError" style="color: var(--color-danger); margin-top: 12px; font-weight: bold; display:none;">PIN Incorreto</div>
+    </div>
+  </div>
+  <!-- ======== HEADER ======== -->
+  <header class="app-header" id="appHeader">
+    <div class="header-top">
+      <div class="header-brand">
+        <div class="logo-icon">AEP</div>
+        <div>
+          <h1>AEP - IN SOMA</h1>
+          <span class="subtitle">NR-17 · Pesquisa de Campo</span>
+        </div>
+      </div>
+      <div class="header-actions">
+        <div class="save-status" id="saveStatus" style="display:none;">
+          <span class="save-dot"></span>
+          <span class="save-text">Salvo</span>
+        </div>
+        <button class="btn-icon" id="btnMethodology" title="Metodologia e Referências">ℹ️</button>
+        <button class="theme-toggle" id="themeToggle" title="Alternar tema escuro" aria-label="Alternar tema"></button>
+        <button class="btn-icon" id="btnExport" title="Exportar" style="display:none;">📤</button>
+        <button class="btn-icon" id="btnHome" title="Voltar ao início" style="display:none;">🏠</button>
+      </div>
+    </div>
+    <!-- Progress -->
+    <div class="progress-container" id="progressContainer" style="display:none;">
+      <div class="progress-bar-bg">
+        <div class="progress-bar-fill" id="progressFill"></div>
+      </div>
+      <div class="progress-info">
+        <span class="progress-text" id="progressText">Seção 1 de 13</span>
+        <span class="progress-percent" id="progressPercent">0%</span>
+      </div>
+      <div class="section-steps" id="sectionSteps"></div>
+    </div>
+  </header>
+  <!-- ======== MAIN CONTENT ======== -->
+  <main class="app-container" id="mainContainer">
+    <!-- ======== DASHBOARD SCREEN ======== -->
+    <div class="screen active" id="screenDashboard">
+      <div class="dashboard-header">
+        <h2>Avaliações Ergonômicas</h2>
+        <p>Gerencie suas avaliações AEP ou inicie uma nova pesquisa de campo.</p>
+      </div>
+      <div class="search-bar">
+        <span class="search-icon">🔍</span>
+        <input type="text" id="searchInput" placeholder="Buscar por empresa, trabalhador ou nº AEP...">
+      </div>
+      <div class="action-cards">
+        <div class="action-card" id="btnNewAssessment">
+          <div class="card-icon primary">📋</div>
+          <h3>Nova Avaliação</h3>
+          <p>Iniciar nova AET</p>
+        </div>
+        <div class="action-card" id="btnExportAll">
+          <div class="card-icon secondary">📊</div>
+          <h3>Exportar Dados</h3>
+          <p>XLSX · CSV · PDF</p>
+        </div>
+      </div>
+      <div class="list-header">
+        <h3>Avaliações Recentes</h3>
+        <div class="list-filters">
+          <button class="filter-chip active" data-filter="all">Todas</button>
+          <button class="filter-chip" data-filter="draft">Rascunhos</button>
+          <button class="filter-chip" data-filter="completed">Concluídas</button>
+        </div>
+      </div>
+      <div class="assessment-list" id="assessmentList">
+        <div class="empty-state" id="emptyState">
+          <div class="empty-icon">📝</div>
+          <h3>Nenhuma avaliação ainda</h3>
+          <p>Clique em "Nova Avaliação" para iniciar sua primeira pesquisa de campo.</p>
+        </div>
+      </div>
+    </div>
+    <!-- ======== METHODOLOGY SCREEN ======== -->
+    <div class="screen" id="screenMethodology">
+      <div class="dashboard-header" style="margin-bottom: var(--space-4);">
+        <button class="btn btn-secondary" onclick="AET.goHome()" style="margin-bottom: var(--space-4);">← Voltar</button>
+        <h2>Metodologia e Referências</h2>
+        <p>Base técnica utilizada para a formulação da Avaliação Ergonômica do Trabalho (AET)</p>
+      </div>
+      <div class="form-card" style="max-width: 800px; margin: 0 auto; line-height: 1.6;">
+        <h3 style="margin-bottom: var(--space-3); color: var(--color-primary);">1. NR-17 (Norma Regulamentadora nº 17)</h3>
+        <p style="margin-bottom: var(--space-4);">A ferramenta foi estruturada com base nas diretrizes da NR-17 do Ministério do Trabalho e Emprego, que visa estabelecer as diretrizes e os requisitos que permitam a adaptação das condições de trabalho às características psicofisiológicas dos trabalhadores, de modo a proporcionar conforto, segurança, saúde e desempenho eficiente no trabalho.</p>
+        <h3 style="margin-bottom: var(--space-3); color: var(--color-primary);">2. Checklists de Hudson Couto</h3>
+        <p style="margin-bottom: var(--space-4);">As seções de organização do trabalho, exigências físicas, mobiliário e equipamentos utilizam critérios validados pelos métodos de Hudson de Araújo Couto, referência em ergonomia no Brasil. O método foca na identificação de condições biomecânicas e organizacionais que representam risco à saúde do trabalhador.</p>
+        <h3 style="margin-bottom: var(--space-3); color: var(--color-primary);">3. NHO 11 e Condições Ambientais</h3>
+        <p style="margin-bottom: var(--space-4);">A avaliação do ambiente de trabalho (iluminação, ruído, temperatura) segue as diretrizes das Normas de Higiene Ocupacional (NHO) da Fundacentro e os níveis de conforto previstos na própria NR-17.</p>
+        <h3 style="margin-bottom: var(--space-3); color: var(--color-primary);">4. Mapa Corporal (Sintomatologia)</h3>
+        <p>O diagrama de avaliação de desconforto/dor baseia-se no Questionário Nórdico de Sintomas Osteomusculares (NMQ), adaptado para uso rápido em campo, permitindo a quantificação da intensidade e o tipo da queixa por região anatômica.</p>
+      </div>
+    </div>
+    <!-- ======== FORM SCREEN ======== -->
+    <div class="screen" id="screenForm">
+      <!-- SECTION 1: Identificação da Empresa -->
+      <div class="form-section" id="section1" data-section="1">
+        <div class="section-header">
+          <span class="section-number">1</span>
+          <h2>Identificação da Empresa</h2>
+          <p>Dados do local de trabalho e da avaliação</p>
+        </div>
+        <div class="form-card">
+          <div class="form-card-title">🏢 Dados da Empresa</div>
+          <div class="form-group" style="margin-bottom:var(--space-4)">
+            <label class="form-label">Empresa <span class="required">*</span></label>
+            <div class="autocomplete-wrapper">
+              <input type="text" class="form-input" id="empresa" data-field="empresa" placeholder="Nome da empresa" autocomplete="off" required>
+              <div class="autocomplete-dropdown" id="empresaDropdown"></div>
+            </div>
+            <span class="form-error" id="empresaError">Campo obrigatório</span>
+          </div>
+          <div class="form-row cols-2">
+            <div class="form-group">
+              <label class="form-label">CNPJ</label>
+              <input type="text" class="form-input" id="cnpj" data-field="cnpj" placeholder="00.000.000/0000-00" maxlength="18">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Nº da AET</label>
+              <input type="text" class="form-input" id="numeroAet" data-field="numero_aet" placeholder="Auto-gerado" readonly>
+            </div>
+          </div>
+        </div>
+        <div class="form-card">
+          <div class="form-card-title">📍 Localização</div>
+          <div class="form-row cols-2">
+            <div class="form-group">
+              <label class="form-label">Unidade</label>
+              <input type="text" class="form-input" id="unidade" data-field="unidade" placeholder="Ex.: Matriz, Filial SP">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Setor <span class="required">*</span></label>
+              <input type="text" class="form-input" id="setor" data-field="setor" placeholder="Ex.: Produção" required>
+              <span class="form-error" id="setorError">Campo obrigatório</span>
+            </div>
+          </div>
+          <div class="form-row cols-2">
+            <div class="form-group">
+              <label class="form-label">Área</label>
+              <input type="text" class="form-input" id="area" data-field="area" placeholder="Ex.: Linha de montagem">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Tarefa</label>
+              <input type="text" class="form-input" id="tarefa" data-field="tarefa" placeholder="Ex.: Montagem de peças">
+            </div>
+          </div>
+        </div>
+        <div class="form-card">
+          <div class="form-card-title">👤 Responsáveis</div>
+          <div class="form-row cols-2">
+            <div class="form-group">
+              <label class="form-label">Responsável pelo setor</label>
+              <input type="text" class="form-input" id="responsavel" data-field="responsavel" placeholder="Nome do responsável">
+            </div>
+            <div class="form-group">
+              <label class="form-label">Avaliador <span class="required">*</span></label>
+              <input type="text" class="form-input" id="avaliador" data-field="avaliador" placeholder="Nome do avaliador" required>
+              <span class="form-error" id="avaliadorError">Campo obrigatório</span>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Data <span class="required">*</span></label>
+            <input type="date" class="form-input" id="dataAvaliacao" data-field="data" required>
+          </div>
+        </div>
+        <div class="form-card">
+          <div class="form-card-title">📋 Tipo de Avaliação</div>
+          <p style="font-size: 0.85em; color: var(--color-text-muted); margin-bottom: var(--space-3);">
+            Selecione o perfil do posto de trabalho a ser avaliado.
+          </p>
+          <div class="toggle-group" data-field="tipo_aep" style="justify-content: center; gap: var(--space-3);">
+            <button type="button" class="toggle-btn active" data-value="operacional" style="padding: 12px 28px; font-size: 1em;">
+              🏗️ Operacional
+            </button>
+            <button type="button" class="toggle-btn" data-value="administrativo" style="padding: 12px 28px; font-size: 1em;">
+              🖥️ Administrativo
+            </button>
+          </div>
+        </div>
+        <div class="form-nav">
+          <button class="btn btn-secondary btn-lg" onclick="AET.goHome()">Cancelar</button>
+          <button class="btn btn-primary btn-lg" onclick="AET.nextSection()">Próximo →</button>
+        </div>
+      </div>
+      <!-- SECTION 2: Dados do Trabalhador -->
+      <div class="form-section" id="section2" data-section="2">
+        <div class="section-header">
+          <span class="section-number">2</span>
+          <h2>Dados do Trabalhador</h2>
+          <p>Informações do trabalhador avaliado</p>
+        </div>
+        <div class="form-card">
+          <div class="form-card-title">👷 Perfil</div>
+          <div class="form-group" style="margin-bottom:var(--space-4)">
+            <label class="form-label">Sexo</label>
+            <div class="toggle-group" data-field="sexo">
+              <button class="toggle-btn" data-value="masculino">♂ Masculino</button>
+              <button class="toggle-btn" data-value="feminino">♀ Feminino</button>
+              <button class="toggle-btn" data-value="nao_informado">Não informado</button>
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom:var(--space-4)">
+            <label class="form-label">Função exercida <span class="required">*</span></label>
+            <input type="text" class="form-input" id="funcao" data-field="funcao" placeholder="Ex.: Operador de máquina" required>
+            <span class="form-error" id="funcaoError">Campo obrigatório</span>
+          </div>
+          <div class="form-row cols-2">
+            <div class="form-group">
+              <label class="form-label">Tempo na função</label>
+              <div style="display:flex;gap:var(--space-2)">
+                <input type="number" class="form-input" id="tempoFuncao" data-field="tempo_funcao" placeholder="0" min="0" style="flex:1">
+                <select class="form-select" id="tempoFuncaoUnidade" data-field="tempo_funcao_unidade" style="flex:1">
+                  <option value="meses">Meses</option>
+                  <option value="anos">Anos</option>
+                </select>
+              </div>
+            </div>
+            <div class="form-group">
+              <label class="form-label">Tempo na empresa</label>
+              <div style="display:flex;gap:var(--space-2)">
+                <input type="number" class="form-input" id="tempoEmpresa" data-field="tempo_empresa" placeholder="0" min="0" style="flex:1">
+                <select class="form-select" id="tempoEmpresaUnidade" data-field="tempo_empresa_unidade" style="flex:1">
+                  <option value="meses">Meses</option>
+                  <option value="anos">Anos</option>
+                </select>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="form-card">
+          <div class="form-card-title">🕐 Jornada</div>
+          <div class="form-group" style="margin-bottom:var(--space-4)">
+            <label class="form-label">Turno</label>
+            <div class="toggle-group" data-field="turno" data-multiple="true">
+              <button class="toggle-btn" data-value="manha">Manhã</button>
+              <button class="toggle-btn" data-value="tarde">Tarde</button>
+              <button class="toggle-btn" data-value="noite">Noite</button>
+              <button class="toggle-btn" data-value="administrativo">Adm.</button>
+              <button class="toggle-btn" data-value="revezamento">Revez.</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Jornada de trabalho</label>
+            <input type="text" class="form-input" id="jornada" data-field="jornada" placeholder="Ex.: 07:00 às 17:00 (44h/sem)">
+          </div>
+        </div>
+        <div class="form-nav">
+          <button class="btn btn-secondary btn-lg" onclick="AET.prevSection()">← Anterior</button>
+          <button class="btn btn-primary btn-lg" onclick="AET.nextSection()">Próximo →</button>
+        </div>
+      </div>
+      <!-- SECTION 3: Caracterização da Atividade -->
+      <div class="form-section" id="section3" data-section="3">
+        <div class="section-header">
+          <span class="section-number">3</span>
+          <h2>Caracterização da Atividade</h2>
+          <p>Descrição detalhada da tarefa real observada</p>
+        </div>
+        <div class="form-card">
+          <div class="form-group" style="margin-bottom:var(--space-4)">
+            <label class="form-label">Nome da Tarefa <span class="required">*</span></label>
+            <input type="text" class="form-input" id="nomeTarefa" data-field="nome_tarefa" placeholder="Ex: Montagem de Painéis, Digitação...">
+          </div>
+          <div class="form-group" style="margin-bottom:var(--space-4)">
+            <label class="form-label">Descrição da tarefa real <span class="required">*</span></label>
+            <textarea class="form-textarea tall" id="descricaoTarefa" data-field="descricao_tarefa" placeholder="Descreva detalhadamente o que o trabalhador faz, como faz, as exigências em tempo e esforço..."></textarea>
+            <details style="margin-top: var(--space-2); background: #f5f7f2; padding: var(--space-3); border-radius: 8px; border: 1px solid #d3e0c7;">
+              <summary style="cursor: pointer; font-weight: bold; color: var(--color-primary); outline: none;">💡 Ver critérios e exemplo de preenchimento</summary>
+              <div style="margin-top: var(--space-3); font-size: 0.9rem; line-height: 1.5; color: #444;">
+                <p>A descrição deve permitir ao leitor entender como toda a tarefa é executada, sem precisar de vídeo. <strong>Pontos obrigatórios:</strong></p>
+                <ul style="padding-left: 20px; margin-bottom: var(--space-3); margin-top: var(--space-2);">
+                  <li><b>Objetivo da atividade:</b> ex: montagem de peças, paletizar caixas, rebarbar peças.</li>
+                  <li><b>Postura adotada:</b> ex: em pé, sentada, alternando postura.</li>
+                  <li><b>Mobiliário/Equipamento:</b> ex: na bancada, operando empilhadeira, computador.</li>
+                  <li><b>Passo a passo do processo:</b> incluir tempo de ciclo (se houver).</li>
+                  <li><b>Exigência biomecânica principal:</b> ex: flexão constante de coluna para depositar caixas, alcance além dos limites articulares, elevação de ombros frequente, postura neutra.</li>
+                  <li><b>Dados da produção:</b> volume de produção (hora/dia), qtd. de trabalhadores, peças por trabalhador, peso da carga movimentada.</li>
+                </ul>
+                <p><b>Exemplo:</b><br>
+                <i style="color:#555">"A tarefa consiste em fazer a limpeza do pernil e separar a picanha. A atividade é realizada em pé de frente para a mesa, com uso de faca. O colaborador pega a peça na esteira que passa a sua frente, posiciona a mesma na mesa, em frente ao seu posto e faz os cortes pré-determinados. Os descartes são colocados em um contentor ao lado. Ao terminar a separação, devolve as peças na esteira à frente. A altura de trabalho das mãos é adequada, porém a área de alcance é ruim, exigindo flexões de coluna constantes para alcançar a peça. O volume total aproximado é de 930 peças no turno, para 4 colaboradores (média de 232/colaborador). Cada peça pesa em média 3,5 kg."</i></p>
+              </div>
+            </details>
+          </div>
+          <div class="form-group" style="margin-bottom:var(--space-4)">
+            <label class="form-label">Principais dificuldades</label>
+            <textarea class="form-textarea" id="dificuldades" data-field="dificuldades" placeholder="Quais as principais dificuldades relatadas ou observadas?"></textarea>
+            <div style="margin-top:var(--space-2)">
+              <button type="button" class="toggle-btn" onclick="AET.appendText('dificuldades','Não foram observadas ou relatadas dificuldades significativas na execução da atividade.')">✅ Sem dificuldades significativas</button>
+            </div>
+          </div>
+          <div class="form-group" style="margin-bottom:var(--space-4)">
+            <label class="form-label">Estratégias utilizadas pelo trabalhador</label>
+            <textarea class="form-textarea" id="estrategias" data-field="estrategias" placeholder="Como o trabalhador lida com as dificuldades? Quais mecanismos de regulação utiliza?"></textarea>
+            <div style="margin-top:var(--space-2)">
+              <button type="button" class="toggle-btn" onclick="AET.appendText('estrategias','O trabalhador não necessita adotar estratégias informais ou adaptações, pois o posto de trabalho fornece todos os recursos, ferramentas e tempo necessários para a execução da tarefa prescrita.')">✅ Sem dificuldades (Recursos adequados)</button>
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Variabilidades da tarefa</label>
+            <textarea class="form-textarea" id="variabilidades" data-field="variabilidades" placeholder="Existem variações na tarefa (sazonalidade, mudanças de ritmo, imprevistos)?"></textarea>
+            <div style="margin-top:var(--space-2)">
+              <button type="button" class="toggle-btn" onclick="AET.appendText('variabilidades','A tarefa é padronizada e repetitiva, sem variações significativas de ritmo, sazonalidade ou imprevistos durante a jornada.')">✅ Sem variabilidades significativas</button>
+            </div>
+          </div>
+        </div>
+        <div class="form-nav">
+          <button class="btn btn-secondary btn-lg" onclick="AET.prevSection()">← Anterior</button>
+          <button class="btn btn-primary btn-lg" onclick="AET.nextSection()">Próximo →</button>
+        </div>
+      </div>
+      <!-- SECTIONS 4-8: Checklists Ergonômicos -->
+      <!-- Section 4 -->
+      <div class="form-section" id="section4" data-section="4">
+        <div class="section-header">
+          <span class="section-number">4</span>
+          <h2>Organização do Trabalho</h2>
+          <p>Avalie os aspectos organizacionais — marque como Inadequado se houver problemas</p>
+        </div>
+        <div id="checklist4"></div>
+        <div class="form-card">
+          <div class="form-group">
+            <label class="form-label">Observações gerais sobre a organização do trabalho</label>
+            <textarea class="form-textarea" data-field="obs_organizacao" placeholder="Anotações adicionais..."></textarea>
+          </div>
+        </div>
+        <div class="form-nav">
+          <button class="btn btn-secondary btn-lg" onclick="AET.prevSection()">← Anterior</button>
+          <button class="btn btn-primary btn-lg" onclick="AET.nextSection()">Próximo →</button>
+        </div>
+      </div>
+      <!-- Section 5 -->
+      <div class="form-section" id="section5" data-section="5">
+        <div class="section-header">
+          <span class="section-number">5</span>
+          <h2>Exigências Físicas</h2>
+          <p>Demandas posturais e biomecânicas da atividade</p>
+        </div>
+        <div id="checklist5"></div>
+        <div class="form-card">
+          <div class="form-group">
+            <label class="form-label">Observações gerais sobre exigências físicas</label>
+            <textarea class="form-textarea" data-field="obs_fisicas" placeholder="Anotações adicionais..."></textarea>
+          </div>
+        </div>
+        <div class="form-nav">
+          <button class="btn btn-secondary btn-lg" onclick="AET.prevSection()">← Anterior</button>
+          <button class="btn btn-primary btn-lg" onclick="AET.nextSection()">Próximo →</button>
+        </div>
+      </div>
+      <!-- Section 6 -->
+      <div class="form-section" id="section6" data-section="6">
+        <div class="section-header">
+          <span class="section-number">6</span>
+          <h2>Manipulação de Cargas</h2>
+          <p>Levantamento, transporte e manuseio de materiais</p>
+        </div>
+        <div id="checklist6"></div>
+        <div class="form-card">
+          <div class="form-group">
+            <label class="form-label">Observações gerais sobre manipulação de cargas</label>
+            <textarea class="form-textarea" data-field="obs_cargas" placeholder="Anotações adicionais..."></textarea>
+          </div>
+        </div>
+        <div class="form-nav">
+          <button class="btn btn-secondary btn-lg" onclick="AET.prevSection()">← Anterior</button>
+          <button class="btn btn-primary btn-lg" onclick="AET.nextSection()">Próximo →</button>
+        </div>
+      </div>
+      <!-- Section 7 -->
+      <div class="form-section" id="section7" data-section="7">
+        <div class="section-header">
+          <span class="section-number">7</span>
+          <h2>Ferramentas e Equipamentos</h2>
+          <p>Condições das ferramentas, máquinas e equipamentos utilizados</p>
+        </div>
+        <div id="checklist7"></div>
+        <div class="form-card">
+          <div class="form-group">
+            <label class="form-label">Observações gerais sobre ferramentas e equipamentos</label>
+            <textarea class="form-textarea" data-field="obs_ferramentas" placeholder="Anotações adicionais..."></textarea>
+          </div>
+        </div>
+        <div class="form-nav">
+          <button class="btn btn-secondary btn-lg" onclick="AET.prevSection()">← Anterior</button>
+          <button class="btn btn-primary btn-lg" onclick="AET.nextSection()">Próximo →</button>
+        </div>
+      </div>
+      <!-- Section 8 -->
+      <div class="form-section" id="section8" data-section="8">
+        <div class="section-header">
+          <span class="section-number">8</span>
+          <h2>Mobiliário</h2>
+          <p>Mesa, cadeira, bancada e demais mobiliários do posto de trabalho</p>
+        </div>
+        <div id="checklist8"></div>
+        <div class="form-card">
+          <div class="form-group">
+            <label class="form-label">Observações gerais sobre o mobiliário</label>
+            <textarea class="form-textarea" data-field="obs_mobiliario" placeholder="Anotações adicionais..."></textarea>
+          </div>
+        </div>
+        <div class="form-nav">
+          <button class="btn btn-secondary btn-lg" onclick="AET.prevSection()">← Anterior</button>
+          <button class="btn btn-primary btn-lg" onclick="AET.nextSection()">Próximo →</button>
+        </div>
+      </div>
+      <!-- Section 9: Ambiente de Trabalho -->
+      <div class="form-section" id="section9" data-section="9">
+        <div class="section-header">
+          <span class="section-number">9</span>
+          <h2>Ambiente de Trabalho</h2>
+          <p>Avalie a percepção do trabalhador sobre as condições ambientais</p>
+        </div>
+        <div id="ratingList9"></div>
+        <div class="form-card">
+          <div class="form-group">
+            <label class="form-label">Observações gerais sobre o ambiente</label>
+            <textarea class="form-textarea" data-field="obs_ambiente" placeholder="Anotações adicionais..."></textarea>
+          </div>
+        </div>
+        <div class="form-nav">
+          <button class="btn btn-secondary btn-lg" onclick="AET.prevSection()">← Anterior</button>
+          <button class="btn btn-primary btn-lg" onclick="AET.nextSection()">Próximo →</button>
+        </div>
+      </div>
+      <!-- SECTION 10: Fatores Psicossociais -->
+      <div class="form-section" id="section10" data-section="10">
+        <div class="section-header">
+          <span class="section-number">10</span>
+          <h2>Fatores Psicossociais e Cognitivos</h2>
+          <p>Avaliação qualitativa baseada nas dimensões da organização do trabalho</p>
+        </div>
+        <div class="form-card">
+          <p style="margin-bottom:var(--space-4); font-size: 0.9em; color:var(--color-text-muted)">
+            Selecione os agravantes identificados e adicione observações (entrevistas, falas dos trabalhadores), se aplicável.
+          </p>
+          <!-- Dim 1 -->
+          <div class="form-group" style="margin-bottom:var(--space-6)">
+            <h3 style="color:var(--color-primary); margin-bottom:var(--space-2)">1. Demandas e Pressão de Trabalho</h3>
+            <p style="font-size:0.85em; color:var(--color-text-muted); margin-bottom:var(--space-3)">
+              "Na sua rotina, a quantidade de trabalho, o ritmo exigido ou os prazos são adequados? Existem momentos em que o trabalho é excessivo ou insuficiente?"
+            </p>
+            <div class="toggle-group" data-field="psico_dim1_riscos" data-multiple="true" style="flex-wrap: wrap; margin-bottom:var(--space-2)">
+              <button type="button" class="toggle-btn" data-value="Sobrecarga de trabalho">Sobrecarga de trabalho</button>
+              <button type="button" class="toggle-btn" data-value="Baixa demanda">Baixa demanda</button>
+              <button type="button" class="toggle-btn" data-value="Pressão temporal">Pressão temporal</button>
+              <button type="button" class="toggle-btn" data-value="Intensidade do trabalho">Intensidade do trabalho</button>
+              <button type="button" class="toggle-btn" data-value="Ritmo excessivo">Ritmo excessivo</button>
+              <button type="button" class="toggle-btn" data-value="Demandas cognitivas elevadas">Demandas cognitivas elevadas</button>
+            </div>
+            <textarea class="form-textarea" data-field="psico_dim1_obs" placeholder="Observações e relatos (Opcional)..."></textarea>
+          </div>
+          <!-- Dim 2 -->
+          <div class="form-group" style="margin-bottom:var(--space-6)">
+            <h3 style="color:var(--color-primary); margin-bottom:var(--space-2)">2. Autonomia e Controle</h3>
+            <p style="font-size:0.85em; color:var(--color-text-muted); margin-bottom:var(--space-3)">
+              "Até que ponto você consegue decidir a forma de executar suas atividades, organizar prioridades, ou participar de decisões que afetam seu trabalho?"
+            </p>
+            <div class="toggle-group" data-field="psico_dim2_riscos" data-multiple="true" style="flex-wrap: wrap; margin-bottom:var(--space-2)">
+              <button type="button" class="toggle-btn" data-value="Baixa autonomia">Baixa autonomia</button>
+              <button type="button" class="toggle-btn" data-value="Baixo controle sobre o trabalho">Baixo controle sobre o trabalho</button>
+              <button type="button" class="toggle-btn" data-value="Rigidez operacional">Rigidez operacional</button>
+              <button type="button" class="toggle-btn" data-value="Falta de participação">Falta de participação</button>
+              <button type="button" class="toggle-btn" data-value="Injustiça organizacional">Injustiça organizacional</button>
+            </div>
+            <textarea class="form-textarea" data-field="psico_dim2_obs" placeholder="Observações e relatos (Opcional)..."></textarea>
+          </div>
+          <!-- Dim 3 -->
+          <div class="form-group" style="margin-bottom:var(--space-6)">
+            <h3 style="color:var(--color-primary); margin-bottom:var(--space-2)">3. Clareza de Papéis e Gestão</h3>
+            <p style="font-size:0.85em; color:var(--color-text-muted); margin-bottom:var(--space-3)">
+              "As expectativas sobre seu trabalho são claras? Existem situações em que recebe orientações conflitantes ou falhas de comunicação?"
+            </p>
+            <div class="toggle-group" data-field="psico_dim3_riscos" data-multiple="true" style="flex-wrap: wrap; margin-bottom:var(--space-2)">
+              <button type="button" class="toggle-btn" data-value="Ambiguidade de papel">Ambiguidade de papel</button>
+              <button type="button" class="toggle-btn" data-value="Conflito de papel">Conflito de papel</button>
+              <button type="button" class="toggle-btn" data-value="Insegurança organizacional">Insegurança organizacional</button>
+              <button type="button" class="toggle-btn" data-value="Falhas de gestão">Falhas de gestão</button>
+              <button type="button" class="toggle-btn" data-value="Condições de difícil comunicação">Condições de difícil comunicação</button>
+            </div>
+            <textarea class="form-textarea" data-field="psico_dim3_obs" placeholder="Observações e relatos (Opcional)..."></textarea>
+          </div>
+          <!-- Dim 4 -->
+          <div class="form-group" style="margin-bottom:var(--space-6)">
+            <h3 style="color:var(--color-primary); margin-bottom:var(--space-2)">4. Apoio da Liderança e da Equipe</h3>
+            <p style="font-size:0.85em; color:var(--color-text-muted); margin-bottom:var(--space-3)">
+              "Quando encontra dificuldades, sente que recebe apoio adequado? Se sente suficientemente integrado e apoiado?"
+            </p>
+            <div class="toggle-group" data-field="psico_dim4_riscos" data-multiple="true" style="flex-wrap: wrap; margin-bottom:var(--space-2)">
+              <button type="button" class="toggle-btn" data-value="Falta de suporte social">Falta de suporte social</button>
+              <button type="button" class="toggle-btn" data-value="Isolamento ocupacional">Isolamento ocupacional</button>
+              <button type="button" class="toggle-btn" data-value="Liderança inadequada">Liderança inadequada</button>
+              <button type="button" class="toggle-btn" data-value="Problemas relacionais">Problemas relacionais</button>
+            </div>
+            <textarea class="form-textarea" data-field="psico_dim4_obs" placeholder="Observações e relatos (Opcional)..."></textarea>
+          </div>
+          <!-- Dim 5 -->
+          <div class="form-group" style="margin-bottom:var(--space-6)">
+            <h3 style="color:var(--color-primary); margin-bottom:var(--space-2)">5. Respeito nas Relações de Trabalho</h3>
+            <p style="font-size:0.85em; color:var(--color-text-muted); margin-bottom:var(--space-3)">
+              "Já presenciou ou vivenciou situações de desrespeito, constrangimento, discriminação, assédio, ou agressões no trabalho?"
+            </p>
+            <div class="toggle-group" data-field="psico_dim5_riscos" data-multiple="true" style="flex-wrap: wrap; margin-bottom:var(--space-2)">
+              <button type="button" class="toggle-btn" data-value="Assédio moral">Assédio moral</button>
+              <button type="button" class="toggle-btn" data-value="Violência psicológica">Violência psicológica</button>
+              <button type="button" class="toggle-btn" data-value="Conflitos interpessoais">Conflitos interpessoais</button>
+            </div>
+            <textarea class="form-textarea" data-field="psico_dim5_obs" placeholder="Observações e relatos (Opcional)..."></textarea>
+          </div>
+          <!-- Dim 6 -->
+          <div class="form-group" style="margin-bottom:var(--space-4)">
+            <h3 style="color:var(--color-primary); margin-bottom:var(--space-2)">6. Reconhecimento e Segurança</h3>
+            <p style="font-size:0.85em; color:var(--color-text-muted); margin-bottom:var(--space-3)">
+              "Como percebe o reconhecimento do seu trabalho, as oportunidades de desenvolvimento e a segurança em relação ao seu emprego?"
+            </p>
+            <div class="toggle-group" data-field="psico_dim6_riscos" data-multiple="true" style="flex-wrap: wrap; margin-bottom:var(--space-2)">
+              <button type="button" class="toggle-btn" data-value="Baixo reconhecimento">Baixo reconhecimento</button>
+              <button type="button" class="toggle-btn" data-value="Insegurança ocupacional">Insegurança ocupacional</button>
+              <button type="button" class="toggle-btn" data-value="Falta de perspectivas">Falta de perspectivas</button>
+              <button type="button" class="toggle-btn" data-value="Desequilíbrio esforço-recompensa">Desequilíbrio esforço-recompensa</button>
+            </div>
+            <textarea class="form-textarea" data-field="psico_dim6_obs" placeholder="Observações e relatos (Opcional)..."></textarea>
+          </div>
+        </div>
+        <div class="form-nav">
+          <button class="btn btn-secondary btn-lg" onclick="AET.prevSection()">← Anterior</button>
+          <button class="btn btn-primary btn-lg" onclick="AET.nextSection()">Próximo →</button>
+        </div>
+      </div>
+      <!-- SECTION 11: Matriz de Risco -->
+      <div class="form-section" id="section11" data-section="11">
+        <div class="section-header">
+          <span class="section-number">11</span>
+          <h2>Matriz de Risco IN SOMA (Metodologia Orbenk)</h2>
+          <p style="margin-bottom: 20px; color: var(--color-text-muted);">Preencha o Fator de Proteção, Perfil de Exposição e Severidade para cada fator de risco detectado. A Probabilidade, Classificação de Risco, Diretrizes e Procedimentos serão calculados automaticamente.</p>
+        </div>
+        <div class="info-box" style="margin-bottom: 20px; background: var(--color-surface-hover); padding: 15px; border-radius: var(--radius-md); border: 1px solid var(--color-border-light);">
+          <h4 style="margin-top:0; color: var(--color-primary); margin-bottom: 12px; font-weight: 600;">Metodologia de Avaliação de Risco Ergonômico (Orbenk)</h4>
+          <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; font-size: 0.85rem; line-height: 1.4;">
+            <div>
+              <b style="color: var(--color-primary);">🛡️ Fator de Proteção (Medidas de Controle):</b><br>
+              • 1 - Adequadas e eficientes<br>
+              • 2 - Insuficientes<br>
+              • 3 - Inexistentes
+            </div>
+            <div>
+              <b style="color: var(--color-primary);">⏱️ Perfil de Exposição Qualitativo:</b><br>
+              • 1 - Baixa (Esporádico / baixas concentrações)<br>
+              • 2 - Média (Frequente / baixas concentrações)<br>
+              • 3 - Alta (Frequente / altas concentrações)<br>
+              • 4 - Extrema (Diário / altas concentrações)
+            </div>
+            <div>
+              <b style="color: var(--color-primary);">⚠️ Severidade (Lesão/Doença):</b><br>
+              • 1 - Leve (Reversível leve, af. &le; 15 dias)<br>
+              • 2 - Séria (Reversível severa, af. &gt; 15 dias)<br>
+              • 3 - Crítica (Irreversível severa / limitante)<br>
+              • 4 - Incapacitante/Fatal (Incapacidade ou óbito)
+            </div>
+            <div>
+              <b style="color: var(--color-primary);">📊 Classificação de Risco (Resultado):</b><br>
+              • 1 - Baixo: Monitorar<br>
+              • 2 - Médio: Gerenciar ativamente<br>
+              • 3 - Alto: Gerenciar proativamente<br>
+              • 4 - Extremo: Evitar / Eliminar
+            </div>
+          </div>
+        </div>
+        <div id="riskMatrixContainer">
+           <!-- Rendered dynamically via JS -->
+           <p style="color: #666; font-style: italic;">Clique em "Atualizar Matriz" para carregar os riscos detectados nas abas anteriores.</p>
+        </div>
+        
+        <button type="button" class="btn btn-primary" id="btnGenerateMatrix" style="margin-top: 20px;">Atualizar Matriz</button>
+        
+        <div class="form-nav">
+          <button class="btn btn-secondary btn-lg" onclick="AET.prevSection()">← Anterior</button>
+          <button class="btn btn-primary btn-lg" onclick="AET.nextSection()">Próximo →</button>
+        </div>
+      </div>
+      <!-- SECTION 12: Queixas do Trabalhador -->
+  <div class="form-section" id="section12" data-section="12">
+    <div class="section-header">
+      <span class="section-number">12</span>
+      <h2>Queixas do Trabalhador</h2>
+      <p>Toque na região do corpo onde há queixa de dor ou desconforto</p>
+    </div>
+    <div class="form-card">
+          <div class="body-map-container">
+            <div class="body-map-wrapper" id="bodyMapWrapper">
+              <!-- SVG Body Map will be injected here -->
+            </div>
+            <div class="body-map-legend">
+              <div class="legend-item"><div class="legend-color" style="background:#FFF3CD;border:1px solid #D4A017"></div> Leve</div>
+              <div class="legend-item"><div class="legend-color" style="background:#FFE0B2;border:1px solid #E67E22"></div> Moderada</div>
+              <div class="legend-item"><div class="legend-color" style="background:#FFCCBC;border:1px solid #E74C3C"></div> Intensa</div>
+              <div class="legend-item"><div class="legend-color" style="background:#F8BBD0;border:1px solid #C0392B"></div> Muito intensa</div>
+              <div class="legend-item"><div class="legend-color" style="background:#EF9A9A;border:1px solid #8B0000"></div> Insuportável</div>
+            </div>
+          </div>
+        </div>
+        <div class="complaints-list" id="complaintsList"></div>
+        <div class="form-card">
+          <div class="form-group">
+            <label class="form-label">Observações gerais sobre queixas</label>
+            <textarea class="form-textarea" data-field="obs_queixas" placeholder="Histórico de acidente/afastamento, tempo de queixa, frequência..."></textarea>
+          </div>
+        </div>
+        <div class="form-nav">
+          <button class="btn btn-secondary btn-lg" onclick="AET.prevSection()">← Anterior</button>
+          <button class="btn btn-primary btn-lg" onclick="AET.nextSection()">Próximo →</button>
+        </div>
+      </div>
+      <!-- Section 11: Registro Fotográfico -->
+      <div class="form-section" id="section13" data-section="13">
+        <div class="section-header">
+          <span class="section-number">13</span>
+          <h2>Registro Fotográfico</h2>
+          <p>Anexe fotos do posto de trabalho com legendas</p>
+        </div>
+        <div class="photo-upload-area" id="photoUploadArea">
+          <div class="upload-icon">📷</div>
+          <h4>Adicionar Fotografias</h4>
+          <p>Toque para tirar uma foto ou selecionar da galeria</p>
+          <input type="file" id="photoInput" accept="image/*" capture="environment" multiple style="display:none;">
+        </div>
+        <div class="photo-grid" id="photoGrid"></div>
+        <div class="form-nav">
+          <button class="btn btn-secondary btn-lg" onclick="AET.prevSection()">← Anterior</button>
+          <button class="btn btn-primary btn-lg" onclick="AET.nextSection()">Próximo →</button>
+        </div>
+      </div>
+      <!-- Section 12: Conclusão Preliminar -->
+      <div class="form-section" id="section14" data-section="14">
+        <div class="section-header">
+          <span class="section-number">14</span>
+          <h2>Conclusão Preliminar</h2>
+          <p>Síntese das observações realizadas durante a avaliação</p>
+        </div>
+        <div class="form-card" id="semaforoContainer" style="margin-bottom: var(--space-4);">
+          <h3 style="margin-bottom: var(--space-2);">Conformidade NR-17 (Automático)</h3>
+          <p style="font-size: 0.9rem; color: var(--color-text-light); margin-bottom: var(--space-4);">Análise baseada nas respostas dos checklists e ambiente.</p>
+          <div class="semaforo-chart">
+            <div class="semaforo-light" id="semaforoRed">
+              <div class="light-circle bg-red"></div>
+              <div class="light-info">
+                <span class="light-count" id="countRed">0</span>
+                <span class="light-label">Inadequados (Risco)</span>
+              </div>
+            </div>
+            <div class="semaforo-light" id="semaforoYellow">
+              <div class="light-circle bg-yellow"></div>
+              <div class="light-info">
+                <span class="light-count" id="countYellow">0</span>
+                <span class="light-label">Atenção (Regular)</span>
+              </div>
+            </div>
+            <div class="semaforo-light" id="semaforoGreen">
+              <div class="light-circle bg-green"></div>
+              <div class="light-info">
+                <span class="light-count" id="countGreen">0</span>
+                <span class="light-label">Adequados (Conforme)</span>
+              </div>
+            </div>
+          </div>
+        </div>
+        <div class="form-card">
+          <div class="form-group">
+            <label class="form-label">Conclusão <span class="required">*</span></label>
+            <textarea class="form-textarea tall" id="conclusao" data-field="conclusao" placeholder="Descreva as principais conclusões da avaliação ergonômica realizada..."></textarea>
+            <span class="form-error" id="conclusaoError">Campo obrigatório para finalizar</span>
+          </div>
+          <div style="margin-top:var(--space-3)">
+            <span class="form-label" style="margin-bottom:var(--space-2);display:block;">Frases rápidas:</span>
+            <div style="display:flex;flex-wrap:wrap;gap:var(--space-2)">
+              <button class="toggle-btn" onclick="AET.appendText('conclusao','O posto de trabalho e a organização das atividades propiciam adequadas condições de trabalho, conforto e segurança, atendendo aos preceitos da NR-17 referentes à adaptação das condições de trabalho às características psicofisiológicas dos trabalhadores.')">✅ NR-17 Atendida (Adequado)</button>
+              <button class="toggle-btn" onclick="AET.appendText('conclusao','Foram observadas inadequações ergonômicas no posto de trabalho que comprometem a plena adaptação das condições de trabalho às características psicofisiológicas dos trabalhadores, necessitando de intervenções preventivas e corretivas conforme os parâmetros da NR-17.')">⚠️ Inadequações Ergonômicas</button>
+              <button class="toggle-btn" onclick="AET.appendText('conclusao','A situação de trabalho apresenta severos desvios ergonômicos e elevado potencial de risco biomecânico/organizacional. Exige-se intervenção imediata e adoção de plano de ação para readequação estrutural do posto, a fim de garantir a conformidade legal com a NR-17 e preservar a integridade física dos trabalhadores.')">🔴 Risco Crítico (Urgente)</button>
+            </div>
+          </div>
+        </div>
+        <div class="form-nav">
+          <button class="btn btn-secondary btn-lg" onclick="AET.prevSection()">← Anterior</button>
+          <button class="btn btn-primary btn-lg" onclick="AET.nextSection()">Próximo →</button>
+        </div>
+      </div>
+      <!-- Section 13: Recomendações Preliminares -->
+      <div class="form-section" id="section15" data-section="15">
+        <div class="section-header">
+          <span class="section-number">15</span>
+          <h2>Recomendações Preliminares</h2>
+          <p>Medidas corretivas e preventivas sugeridas</p>
+        </div>
+        <div class="form-card">
+          <div class="form-group">
+            <label class="form-label">Recomendações</label>
+            <textarea class="form-textarea tall" id="recomendacoes" data-field="recomendacoes" placeholder="Liste as recomendações ergonômicas para adequação do posto de trabalho..."></textarea>
+          </div>
+          <div style="margin-top:var(--space-3)">
+            <span class="form-label" style="margin-bottom:var(--space-2);display:block;">Recomendações frequentes:</span>
+            <div style="display:flex;flex-wrap:wrap;gap:var(--space-2)">
+              <button class="toggle-btn" onclick="AET.appendText('recomendacoes','• Adequar mobiliário às características antropométricas do trabalhador.\n')">🪑 Mobiliário</button>
+              <button class="toggle-btn" onclick="AET.appendText('recomendacoes','• Implementar pausas programadas durante a jornada de trabalho.\n')">⏸️ Pausas</button>
+              <button class="toggle-btn" onclick="AET.appendText('recomendacoes','• Realizar rodízio de tarefas para reduzir a sobrecarga biomecânica.\n')">🔄 Rodízio</button>
+              <button class="toggle-btn" onclick="AET.appendText('recomendacoes','• Fornecer ferramentas ergonômicas adequadas à atividade.\n')">🔧 Ferramentas</button>
+              <button class="toggle-btn" onclick="AET.appendText('recomendacoes','• Adequar condições ambientais (iluminação, temperatura, ruído).\n')">💡 Ambiente</button>
+              <button class="toggle-btn" onclick="AET.appendText('recomendacoes','• Realizar treinamento ergonômico para os trabalhadores.\n')">📚 Treinamento</button>
+            </div>
+          </div>
+        </div>
+        <div class="form-nav">
+          <button class="btn btn-secondary btn-lg" onclick="AET.prevSection()">← Anterior</button>
+          <button class="btn btn-primary btn-lg btn-block" onclick="AET.showSubmitConfirm()" style="background:linear-gradient(135deg, #5B8C3E, #4A7030);">✅ Finalizar Avaliação</button>
+        </div>
+      </div>
+    </div><!-- /screenForm -->
+  </main>
+  <!-- ======== MODAL ======== -->
+  <div class="modal-overlay" id="modalOverlay">
+    <div class="modal" id="modalContent"></div>
+  </div>
+  <!-- ======== TOAST CONTAINER ======== -->
+  <div class="toast-container" id="toastContainer"></div>
+  <!-- ======== JAVASCRIPT ======== -->
+  <script src="js/db.js?v=8"></script>
+  <script src="js/app.js?v=8"></script>
+  <!-- ======== SERVICE WORKER (PWA) ======== -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+          .then(reg => console.log('[PWA] Service Worker registrado:', reg.scope))
+          .catch(err => console.warn('[PWA] SW falhou:', err));
+      });
+    }
+  </script>
+</body>
+</html>
