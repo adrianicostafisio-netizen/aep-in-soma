@@ -1,7 +1,7 @@
 // AEP IN SOMA — Service Worker v1.0
 // Estrategia: Cache-First para assets estaticos, Network-First para index.html
 
-const CACHE_NAME = 'aep-soma-v22';
+const CACHE_NAME = 'aep-soma-v23';
 const STATIC_ASSETS = [
   './',
   './index.html',

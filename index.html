@@ -960,20 +960,18 @@
           <p>Tire fotos in loco ou carregue imagens da galeria (JPG, PNG, WEBP)</p>
           
           <div class="photo-upload-actions">
-            <button type="button" class="btn btn-primary" id="btnTakePhoto">
+            <label for="photoCameraInput" class="btn btn-primary" id="btnTakePhoto" style="cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
               📸 Tirar Foto (Câmera)
-            </button>
-            <button type="button" class="btn btn-secondary" id="btnChooseGallery">
+            </label>
+            <label for="photoGalleryInput" class="btn btn-secondary" id="btnChooseGallery" style="cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
               🖼️ Galeria / Arquivos
-            </button>
+            </label>
           </div>
           
-          <!-- Input direto da câmera (mobile) -->
-          <input type="file" id="photoCameraInput" accept="image/*" capture="environment" style="display:none;">
-          <!-- Input da galeria / múltiplos arquivos -->
-          <input type="file" id="photoGalleryInput" accept="image/*" multiple style="display:none;">
-          <!-- Fallback photoInput mantido para compatibilidade -->
-          <input type="file" id="photoInput" accept="image/*" multiple style="display:none;">
+          <!-- Inputs nativos acessíveis (sem display:none para garantir abertura no iOS/Android) -->
+          <input type="file" id="photoCameraInput" accept="image/*" capture="environment" style="position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; opacity: 0; pointer-events: none;">
+          <input type="file" id="photoGalleryInput" accept="image/*" multiple style="position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; opacity: 0; pointer-events: none;">
+          <input type="file" id="photoInput" accept="image/*" multiple style="position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); border: 0; opacity: 0; pointer-events: none;">
         </div>
 
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: var(--space-3);">
@@ -1084,13 +1082,13 @@
   <!-- ======== TOAST CONTAINER ======== -->
   <div class="toast-container" id="toastContainer"></div>
   <!-- ======== JAVASCRIPT ======== -->
-  <script src="js/db.js?v=22"></script>
-  <script src="js/knowledge/nr17.js?v=22"></script>
-  <script src="js/knowledge/nr01.js?v=22"></script>
-  <script src="js/knowledge/fundacentro.js?v=22"></script>
-  <script src="js/knowledge/normativeAssociations.js?v=22"></script>
-  <script src="js/conclusionEngine.js?v=22"></script>
-  <script src="js/app.js?v=22"></script>
+  <script src="js/db.js?v=23"></script>
+  <script src="js/knowledge/nr17.js?v=23"></script>
+  <script src="js/knowledge/nr01.js?v=23"></script>
+  <script src="js/knowledge/fundacentro.js?v=23"></script>
+  <script src="js/knowledge/normativeAssociations.js?v=23"></script>
+  <script src="js/conclusionEngine.js?v=23"></script>
+  <script src="js/app.js?v=23"></script>
   <!-- ======== SERVICE WORKER (PWA) ======== -->
   <script>
     if ('serviceWorker' in navigator) {
